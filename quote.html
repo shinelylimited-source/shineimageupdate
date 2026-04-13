@@ -547,7 +547,8 @@
                     <option value="Move-In/Move-Out Cleaning">Move-In/Move-Out Cleaning</option>
                     <option value="Airbnb/Short-Term Rental">Airbnb/Short-Term Rental</option>
                     <option value="Office Cleaning">Office Cleaning</option>
-                    <option value="Warehouse Cleaning">Warehouse Cleaning</option>
+                   <!-- <option value="Warehouse Cleaning">Warehouse Cleaning</option> -->    
+                    <option value="Post-Construction Cleaning">Post-Construction Cleaning</option>
                   </select>
                   <div id="serviceError" class="form-error">Please select a service.</div>
                 </div>
@@ -562,6 +563,14 @@
                     <option value="6+ Bedrooms / Large Home">6+ Bedrooms / Large Home</option>
                   </select>
                 </div>
+              </div>
+                <div class="form-group">
+                <label for="image">Upload Image (PNG/JPG, Max 10MB)</label>
+               <input type="file" id="image" name="image" accept="image/png, image/jpeg">
+              <div id="imageError" class="form-error">Only PNG/JPG under 10MB allowed.</div>
+
+               <!-- Preview (no styling added, keeps your UI intact) -->
+                <img id="imagePreview" style="display:none; margin-top:10px; max-width:200px;" />
               </div>
 
               <div class="form-group">
@@ -650,144 +659,203 @@
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // 1. HEADER LOGIC
-      const menuToggle = document.getElementById('menuToggle');
-      const mainNav = document.querySelector('#main-nav ul');
-      const header = document.getElementById('main-header');
 
-      if (menuToggle && mainNav) {
-        menuToggle.addEventListener('click', () => {
-          const isOpen = mainNav.classList.toggle('open');
-          menuToggle.classList.toggle('active', isOpen);
-          menuToggle.setAttribute('aria-expanded', isOpen);
-          document.body.classList.toggle('no-scroll', isOpen);
-        });
+    //S
+   
+document.addEventListener('DOMContentLoaded', () => {
+  // HEADER LOGIC (unchanged)
+  const menuToggle = document.getElementById('menuToggle');
+  const mainNav = document.querySelector('#main-nav ul');
+  const header = document.getElementById('main-header');
 
-        // Close menu when a link is clicked
-        mainNav.querySelectorAll('a').forEach(link => {
-          link.addEventListener('click', () => {
-            mainNav.classList.remove('open');
-            menuToggle.classList.remove('active');
-            menuToggle.setAttribute('aria-expanded', 'false');
-            document.body.classList.remove('no-scroll');
-          });
-        });
+  if (menuToggle && mainNav) {
+    menuToggle.addEventListener('click', () => {
+      const isOpen = mainNav.classList.toggle('open');
+      menuToggle.classList.toggle('active', isOpen);
+      menuToggle.setAttribute('aria-expanded', isOpen);
+      document.body.classList.toggle('no-scroll', isOpen);
+    });
 
-        // Close menu when clicking outside
-        document.addEventListener('click', (e) => {
-          if (!header.contains(e.target) && mainNav.classList.contains('open')) {
-            mainNav.classList.remove('open');
-            menuToggle.classList.remove('active');
-            menuToggle.setAttribute('aria-expanded', 'false');
-            document.body.classList.remove('no-scroll');
-          }
-        });
+    mainNav.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        mainNav.classList.remove('open');
+        menuToggle.classList.remove('active');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('no-scroll');
+      });
+    });
 
-        // Close menu on window resize
-        window.addEventListener('resize', () => {
-          if (window.innerWidth > 768 && mainNav.classList.contains('open')) {
-            mainNav.classList.remove('open');
-            menuToggle.classList.remove('active');
-            menuToggle.setAttribute('aria-expanded', 'false');
-            document.body.classList.remove('no-scroll');
-          }
-        });
+    document.addEventListener('click', (e) => {
+      if (!header.contains(e.target) && mainNav.classList.contains('open')) {
+        mainNav.classList.remove('open');
+        menuToggle.classList.remove('active');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('no-scroll');
       }
+    });
 
-      // Header Scroll Effect
-      window.addEventListener('scroll', () => {
-        if (window.scrollY > 50) {
-          header.classList.add('scrolled');
-        } else {
-          header.classList.remove('scrolled');
-        }
-      });
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768 && mainNav.classList.contains('open')) {
+        mainNav.classList.remove('open');
+        menuToggle.classList.remove('active');
+        menuToggle.setAttribute('aria-expanded', 'false');
+        document.body.classList.remove('no-scroll');
+      }
+    });
+  }
 
-      // Smooth Scroll for Internal Links
-      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-          const href = this.getAttribute('href');
-          if (href !== '#' && document.querySelector(href)) {
-            e.preventDefault();
-            const target = document.querySelector(href);
-            const headerHeight = header.offsetHeight;
-            const targetPosition = target.offsetTop - headerHeight - 20;
-            window.scrollTo({
-              top: targetPosition,
-              behavior: 'smooth'
-            });
-          }
-        });
-      });
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 50) {
+      header.classList.add('scrolled');
+    } else {
+      header.classList.remove('scrolled');
+    }
+  });
 
-      // 2. FORM SUBMISSION LOGIC
-      const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxJFirHh87jcdSuil8uEDQi2CpXwfFDaFu8AjUZgkFRZ2f2Zh1OZJOI1enR5Z2wQ1Xp/exec';
-      const quoteForm = document.getElementById('quoteForm');
-      const submitBtn = document.getElementById('submitBtn');
-      const formSuccess = document.getElementById('formSuccess');
-      const formErrorSummary = document.getElementById('formErrorSummary');
-
-      if (quoteForm) {
-        quoteForm.addEventListener('submit', function(e) {
-          e.preventDefault();
-          
-          formSuccess.style.display = 'none';
-          formErrorSummary.style.display = 'none';
-          document.querySelectorAll(".form-error").forEach(error => {
-            error.style.display = 'none';
-          });
-
-          let isValid = true;
-          const name = document.getElementById('name').value.trim();
-          const email = document.getElementById('email').value.trim();
-          const phone = document.getElementById('phone').value.trim();
-          const address = document.getElementById('address').value.trim();
-          const service = document.getElementById('service').value;
-
-          if (!name) { document.getElementById('nameError').style.display = 'block'; isValid = false; }
-          if (!email || !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) { document.getElementById('emailError').style.display = 'block'; isValid = false; }
-          if (!phone) { document.getElementById('phoneError').style.display = 'block'; isValid = false; }
-          if (!address) { document.getElementById('addressError').style.display = 'block'; isValid = false; }
-          if (!service) { document.getElementById('serviceError').style.display = 'block'; isValid = false; }
-
-          if (!isValid) {
-            formErrorSummary.textContent = 'Please correct the errors in the form.';
-            formErrorSummary.style.display = 'block';
-            return;
-          }
-
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Sending...';
-          
-          const formData = new FormData(quoteForm);
-
-          fetch(WEB_APP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: formData
-          })
-          .then(() => {
-            formSuccess.innerHTML = '<strong>✅ Success!</strong> Your quote request has been logged.';
-            formSuccess.style.display = 'block';
-            quoteForm.reset();
-            submitBtn.textContent = 'Submit Request';
-            submitBtn.disabled = false;
-            
-            setTimeout(() => {
-              window.location.reload();
-            }, 3000);
-          })
-          .catch(err => {
-            console.error('Submission error:', err);
-            formErrorSummary.textContent = 'Submission failed. Please check your internet connection or try again.';
-            formErrorSummary.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit Request';
-          });
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      const href = this.getAttribute('href');
+      if (href !== '#' && document.querySelector(href)) {
+        e.preventDefault();
+        const target = document.querySelector(href);
+        const headerHeight = header.offsetHeight;
+        const targetPosition = target.offsetTop - headerHeight - 20;
+        window.scrollTo({
+          top: targetPosition,
+          behavior: 'smooth'
         });
       }
     });
-  </script>
+  });
+  //Image Preview
+const imageInput = document.getElementById('image');
+const imagePreview = document.getElementById('imagePreview');
+
+let compressedFile = null;
+
+if (imageInput) {
+  imageInput.addEventListener('change', async function () {
+    const file = this.files[0];
+
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png'];
+    const maxSize = 10 * 1024 * 1024;
+
+    // Reset
+    document.getElementById('imageError').style.display = 'none';
+    imagePreview.style.display = 'none';
+
+    // TYPE CHECK
+    if (!allowedTypes.includes(file.type)) {
+      document.getElementById('imageError').textContent = 'Only JPG or PNG allowed.';
+      document.getElementById('imageError').style.display = 'block';
+      this.value = '';
+      return;
+    }
+
+    // SIZE CHECK
+    if (file.size > maxSize) {
+      document.getElementById('imageError').textContent = 'Image must be under 10MB.';
+      document.getElementById('imageError').style.display = 'block';
+      this.value = '';
+      return;
+    }
+
+    // PREVIEW
+    const reader = new FileReader();
+    reader.onload = e => {
+      imagePreview.src = e.target.result;
+      imagePreview.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+
+    // COMPRESS IMAGE
+    compressedFile = await compressImage(file);
+  });
+}
+
+  //Image Preview
+  // FORM LOGIC (UPDATED)
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwUcQWhBgjpXGCNPTSyfo7hU4rxCQxF2KoBimt1czl5Ndw72pa8Dux8cbBAVVyYDlA8KA/exec';
+  const quoteForm = document.getElementById('quoteForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const formSuccess = document.getElementById('formSuccess');
+  const formErrorSummary = document.getElementById('formErrorSummary');
+
+  if (quoteForm) {
+    quoteForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      formSuccess.style.display = 'none';
+      formErrorSummary.style.display = 'none';
+      document.querySelectorAll(".form-error").forEach(error => {
+        error.style.display = 'none';
+      });
+
+      let isValid = true;
+
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const address = document.getElementById('address').value.trim();
+      const service = document.getElementById('service').value;
+
+      // IMAGE VALIDATION
+      const imageInput = document.getElementById('image');
+      const file = imageInput ? imageInput.files[0] : null;
+
+      if (file) {
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+          document.getElementById('imageError').style.display = 'block';
+          isValid = false;
+        }
+      }
+
+      if (!name) { document.getElementById('nameError').style.display = 'block'; isValid = false; }
+      if (!email || !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) { document.getElementById('emailError').style.display = 'block'; isValid = false; }
+      if (!phone) { document.getElementById('phoneError').style.display = 'block'; isValid = false; }
+      if (!address) { document.getElementById('addressError').style.display = 'block'; isValid = false; }
+      if (!service) { document.getElementById('serviceError').style.display = 'block'; isValid = false; }
+
+      if (!isValid) {
+        formErrorSummary.textContent = 'Please correct the errors in the form.';
+        formErrorSummary.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+
+      const formData = new FormData(quoteForm);
+
+      fetch(WEB_APP_URL, {
+        method: 'POST',
+        mode: 'cors', // UPDATED
+        body: formData
+      })
+      .then(() => {
+        formSuccess.innerHTML = '<strong>✅ Success!</strong> Your quote request has been logged.';
+        formSuccess.style.display = 'block';
+        quoteForm.reset();
+        submitBtn.textContent = 'Submit Request';
+        submitBtn.disabled = false;
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 3000);
+      })
+      .catch(err => {
+        console.error('Submission error:', err);
+        formErrorSummary.textContent = 'Submission failed. Please try again.';
+        formErrorSummary.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Request';
+      });
+    });
+  }
+});
+</script>
 </body>
 </html>
