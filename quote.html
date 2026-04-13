@@ -724,12 +724,56 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- IMAGE PREVIEW LOGIC ---
+  // --- IMAGE PREVIEW & COMPRESSION (FOR BASE64) ---
   const imageInput = document.getElementById("image");
   const imagePreview = document.getElementById("imagePreview");
+  let base64Image = null;
+
+  async function getBase64(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+
+          // Max dimensions for compression (e.g., 1000px)
+          const MAX_WIDTH = 1000;
+          const MAX_HEIGHT = 1000;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Get Base64 string from canvas
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          // Remove the "data:image/jpeg;base64," prefix
+          const base64 = dataUrl.split(',')[1];
+          resolve(base64);
+        };
+      };
+    });
+  }
 
   if (imageInput) {
-    imageInput.addEventListener("change", function () {
+    imageInput.addEventListener("change", async function () {
       const file = this.files[0];
       if (!file) return;
 
@@ -759,6 +803,9 @@ document.addEventListener("DOMContentLoaded", () => {
         imagePreview.style.display = "block";
       };
       reader.readAsDataURL(file);
+
+      // Convert to Base64 for submission
+      base64Image = await getBase64(file);
     });
   }
 
@@ -770,7 +817,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const formErrorSummary = document.getElementById("formErrorSummary");
 
   if (quoteForm) {
-    quoteForm.addEventListener("submit", function(e) {
+    quoteForm.addEventListener("submit", async function(e) {
       e.preventDefault();
 
       formSuccess.style.display = "none";
@@ -801,38 +848,46 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending...";
 
-      // Standard FormData is the most reliable way for multipart data
-      const formData = new FormData(quoteForm);
+      // Send as JSON payload with Base64 image
+      const payload = {
+        name: name,
+        email: email,
+        phone: phone,
+        address: address,
+        service: service,
+        size: document.getElementById("size").value,
+        details: document.getElementById("details").value,
+        image: base64Image // This is the Base64 string
+      };
 
-      fetch(WEB_APP_URL, {
-        method: "POST",
-        body: formData
-      })
-      .then(response => response.text())
-      .then(result => {
+      try {
+        const response = await fetch(WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const result = await response.text();
+        
         if (result.includes("Success")) {
           formSuccess.innerHTML = "<strong>✅ Success!</strong> Your quote request has been logged.";
           formSuccess.style.display = "block";
           quoteForm.reset();
           if (imagePreview) imagePreview.style.display = "none";
+          base64Image = null;
         } else {
           throw new Error(result);
         }
-      })
-      .catch(err => {
+      } catch (err) {
         console.error("Submission error:", err);
         formErrorSummary.textContent = "Submission failed. " + err.message;
         formErrorSummary.style.display = "block";
-      })
-      .finally(() => {
+      } finally {
         submitBtn.textContent = "Submit Request";
         submitBtn.disabled = false;
-      });
+      }
     });
   }
 });
 </script>
-
  
 </body>
 </html>
