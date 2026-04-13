@@ -658,6 +658,7 @@
     </footer>
   </div>
 <script>
+  
 document.addEventListener("DOMContentLoaded", () => {
   // --- HEADER & NAVIGATION LOGIC (UNCHANGED) ---
   const menuToggle = document.getElementById("menuToggle");
@@ -724,10 +725,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- IMAGE PREVIEW & COMPRESSION (FOR BASE64) ---
+  // --- MULTI-IMAGE PREVIEW & COMPRESSION ---
   const imageInput = document.getElementById("image");
-  const imagePreview = document.getElementById("imagePreview");
-  let base64Image = null;
+  const imagePreviewContainer = document.getElementById("imagePreviewContainer") || document.createElement("div");
+  if (!document.getElementById("imagePreviewContainer")) {
+    imagePreviewContainer.id = "imagePreviewContainer";
+    imagePreviewContainer.style.display = "flex";
+    imagePreviewContainer.style.flexWrap = "wrap";
+    imagePreviewContainer.style.gap = "10px";
+    imagePreviewContainer.style.marginTop = "10px";
+    imageInput.parentNode.insertBefore(imagePreviewContainer, imageInput.nextSibling);
+  }
+
+  let base64Images = []; // Array to store multiple Base64 strings
+
+  // Hide the original single preview if it exists
+  const oldPreview = document.getElementById("imagePreview");
+  if (oldPreview) oldPreview.style.display = "none";
 
   async function getBase64(file) {
     return new Promise((resolve) => {
@@ -740,8 +754,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const canvas = document.createElement("canvas");
           let width = img.width;
           let height = img.height;
-
-          // Max dimensions for compression (e.g., 1000px)
           const MAX_WIDTH = 1000;
           const MAX_HEIGHT = 1000;
 
@@ -761,10 +773,7 @@ document.addEventListener("DOMContentLoaded", () => {
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, width, height);
-
-          // Get Base64 string from canvas
           const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          // Remove the "data:image/jpeg;base64," prefix
           const base64 = dataUrl.split(',')[1];
           resolve(base64);
         };
@@ -773,44 +782,52 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (imageInput) {
+    imageInput.setAttribute("multiple", "true"); // Enable multiple selection
     imageInput.addEventListener("change", async function () {
-      const file = this.files[0];
-      if (!file) return;
-
-      const allowedTypes = ["image/jpeg", "image/png"];
-      const maxSize = 10 * 1024 * 1024; // 10MB
-
+      const files = Array.from(this.files);
+      imagePreviewContainer.innerHTML = "";
+      base64Images = [];
       document.getElementById("imageError").style.display = "none";
-      imagePreview.style.display = "none";
 
-      if (!allowedTypes.includes(file.type)) {
-        document.getElementById("imageError").textContent = "Only JPG or PNG allowed.";
+      if (files.length > 5) {
+        document.getElementById("imageError").textContent = "Maximum 5 images allowed.";
         document.getElementById("imageError").style.display = "block";
         this.value = "";
         return;
       }
 
-      if (file.size > maxSize) {
-        document.getElementById("imageError").textContent = "Image must be under 10MB.";
-        document.getElementById("imageError").style.display = "block";
-        this.value = "";
-        return;
+      for (const file of files) {
+        const allowedTypes = ["image/jpeg", "image/png"];
+        const maxSize = 10 * 1024 * 1024;
+
+        if (!allowedTypes.includes(file.type) || file.size > maxSize) {
+          document.getElementById("imageError").textContent = "One or more images are invalid (Max 10MB, JPG/PNG only).";
+          document.getElementById("imageError").style.display = "block";
+          continue;
+        }
+
+        // Create preview thumbnail
+        const imgThumb = document.createElement("img");
+        imgThumb.style.width = "80px";
+        imgThumb.style.height = "80px";
+        imgThumb.style.objectFit = "cover";
+        imgThumb.style.borderRadius = "4px";
+        imgThumb.style.border = "1px solid #ddd";
+        
+        const reader = new FileReader();
+        reader.onload = e => { imgThumb.src = e.target.result; };
+        reader.readAsDataURL(file);
+        imagePreviewContainer.appendChild(imgThumb);
+
+        // Convert to Base64
+        const b64 = await getBase64(file);
+        base64Images.push(b64);
       }
-
-      const reader = new FileReader();
-      reader.onload = e => {
-        imagePreview.src = e.target.result;
-        imagePreview.style.display = "block";
-      };
-      reader.readAsDataURL(file);
-
-      // Convert to Base64 for submission
-      base64Image = await getBase64(file);
     });
   }
 
   // --- FORM SUBMISSION LOGIC ---
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwY4hzQE5DiQcGcQ4yD7PNlZTj1hugSBocIC3Idzh1mbLcSop5_G47hdBQ6bURRRLbxeg/exec'; // REPLACE WITH YOUR DEPLOYED WEB APP URL
+  const WEB_APP_URL = 'YOUR_WEB_APP_URL_HERE'; // REPLACE WITH YOUR DEPLOYED WEB APP URL
   const quoteForm = document.getElementById("quoteForm");
   const submitBtn = document.getElementById("submitBtn");
   const formSuccess = document.getElementById("formSuccess");
@@ -848,7 +865,6 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending...";
 
-      // Send as JSON payload with Base64 image
       const payload = {
         name: name,
         email: email,
@@ -857,7 +873,7 @@ document.addEventListener("DOMContentLoaded", () => {
         service: service,
         size: document.getElementById("size").value,
         details: document.getElementById("details").value,
-        image: base64Image // This is the Base64 string
+        images: base64Images // Send array of Base64 strings
       };
 
       try {
@@ -871,8 +887,8 @@ document.addEventListener("DOMContentLoaded", () => {
           formSuccess.innerHTML = "<strong>✅ Success!</strong> Your quote request has been logged.";
           formSuccess.style.display = "block";
           quoteForm.reset();
-          if (imagePreview) imagePreview.style.display = "none";
-          base64Image = null;
+          imagePreviewContainer.innerHTML = "";
+          base64Images = [];
         } else {
           throw new Error(result);
         }
@@ -888,6 +904,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 </script>
+
  
 </body>
 </html>
