@@ -831,24 +831,27 @@ if (imageInput) {
       const formData = new FormData(quoteForm);
 
       fetch(WEB_APP_URL, {
-          method: 'POST',
-        body: formData
-            })
-      .then(() => {
-        formSuccess.innerHTML = '<strong>✅ Success!</strong> Your quote request has been logged.';
-        formSuccess.style.display = 'block';
-        quoteForm.reset();
-        submitBtn.textContent = 'Submit Request';
-        submitBtn.disabled = false;
-        console.log("Submitting form...");
+  method: 'POST',
+  body: formData
+})
+.then(res => res.text()) // 👈 ADD THIS
+.then(data => {
+  console.log("Server response:", data);
 
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
-      })
+  if (data.includes("Success")) {
+    formSuccess.innerHTML = '<strong>✅ Success!</strong> Your quote request has been logged.';
+    formSuccess.style.display = 'block';
+    quoteForm.reset();
+  } else {
+    throw new Error(data);
+  }
+
+  submitBtn.textContent = 'Submit Request';
+  submitBtn.disabled = false;
+})
       .catch(err => {
         console.error('Submission error:', err);
-        formErrorSummary.textContent = 'Submission failed. Please try again.';
+        formErrorSummary.textContent = 'Submission failed. ' + err.message;
         formErrorSummary.style.display = 'block';
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Request';
