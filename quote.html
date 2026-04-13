@@ -658,7 +658,9 @@
     </footer>
   </div>
 <script>
-  
+  <!-- Include JSZip library for bundling images -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
 document.addEventListener("DOMContentLoaded", () => {
   // --- HEADER & NAVIGATION LOGIC (UNCHANGED) ---
   const menuToggle = document.getElementById("menuToggle");
@@ -725,7 +727,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- MULTI-IMAGE PREVIEW & COMPRESSION ---
+  // --- MULTI-IMAGE PREVIEW & ZIP BUNDLING ---
   const imageInput = document.getElementById("image");
   const imagePreviewContainer = document.getElementById("imagePreviewContainer") || document.createElement("div");
   if (!document.getElementById("imagePreviewContainer")) {
@@ -737,56 +739,14 @@ document.addEventListener("DOMContentLoaded", () => {
     imageInput.parentNode.insertBefore(imagePreviewContainer, imageInput.nextSibling);
   }
 
-  let base64Images = []; // Array to store multiple Base64 strings
-
-  // Hide the original single preview if it exists
-  const oldPreview = document.getElementById("imagePreview");
-  if (oldPreview) oldPreview.style.display = "none";
-
-  async function getBase64(file) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          let width = img.width;
-          let height = img.height;
-          const MAX_WIDTH = 1000;
-          const MAX_HEIGHT = 1000;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-          const base64 = dataUrl.split(',')[1];
-          resolve(base64);
-        };
-      };
-    });
-  }
+  let selectedFiles = []; // Array to store actual file objects
 
   if (imageInput) {
-    imageInput.setAttribute("multiple", "true"); // Enable multiple selection
-    imageInput.addEventListener("change", async function () {
+    imageInput.setAttribute("multiple", "true");
+    imageInput.addEventListener("change", function () {
       const files = Array.from(this.files);
       imagePreviewContainer.innerHTML = "";
-      base64Images = [];
+      selectedFiles = [];
       document.getElementById("imageError").style.display = "none";
 
       if (files.length > 5) {
@@ -806,6 +766,8 @@ document.addEventListener("DOMContentLoaded", () => {
           continue;
         }
 
+        selectedFiles.push(file);
+
         // Create preview thumbnail
         const imgThumb = document.createElement("img");
         imgThumb.style.width = "80px";
@@ -818,11 +780,16 @@ document.addEventListener("DOMContentLoaded", () => {
         reader.onload = e => { imgThumb.src = e.target.result; };
         reader.readAsDataURL(file);
         imagePreviewContainer.appendChild(imgThumb);
-
-        // Convert to Base64
-        const b64 = await getBase64(file);
-        base64Images.push(b64);
       }
+    });
+  }
+
+  // Helper to get Base64 from a blob (for ZIP result)
+  async function blobToBase64(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(blob);
     });
   }
 
@@ -863,6 +830,30 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       submitBtn.disabled = true;
+      submitBtn.textContent = "Processing images...";
+
+      let zipBase64 = null;
+      if (selectedFiles.length > 0) {
+        try {
+          const zip = new JSZip();
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            // Use index + original extension for unique filenames in ZIP
+            const ext = file.name.split('.').pop();
+            zip.file(`image_${i + 1}.${ext}`, file);
+          }
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          zipBase64 = await blobToBase64(zipBlob);
+        } catch (zipErr) {
+          console.error("Zipping error:", zipErr);
+          formErrorSummary.textContent = "Failed to process images.";
+          formErrorSummary.style.display = "block";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit Request";
+          return;
+        }
+      }
+
       submitBtn.textContent = "Sending...";
 
       const payload = {
@@ -873,7 +864,7 @@ document.addEventListener("DOMContentLoaded", () => {
         service: service,
         size: document.getElementById("size").value,
         details: document.getElementById("details").value,
-        images: base64Images // Send array of Base64 strings
+        zipData: zipBase64 // Send the bundled ZIP as Base64
       };
 
       try {
@@ -888,7 +879,7 @@ document.addEventListener("DOMContentLoaded", () => {
           formSuccess.style.display = "block";
           quoteForm.reset();
           imagePreviewContainer.innerHTML = "";
-          base64Images = [];
+          selectedFiles = [];
         } else {
           throw new Error(result);
         }
