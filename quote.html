@@ -659,8 +659,8 @@
   </div>
 <script>
 
-// --- COMPRESSION FUNCTION ---
-async function compressImage(file) {
+// --- COMPRESSION & BASE64 FUNCTION ---
+async function compressAndGetBase64(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -672,9 +672,9 @@ async function compressImage(file) {
         let width = img.width;
         let height = img.height;
 
-        // Max dimensions for compression (e.g., 1200px)
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
+        // Max dimensions for compression (e.g., 1000px for stability)
+        const MAX_WIDTH = 1000;
+        const MAX_HEIGHT = 1000;
 
         if (width > height) {
           if (width > MAX_WIDTH) {
@@ -693,16 +693,17 @@ async function compressImage(file) {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Compress to JPEG with 0.7 quality
-        canvas.toBlob((blob) => {
-          resolve(blob);
-        }, "image/jpeg", 0.7);
+        // Get Base64 string from canvas
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+        // Remove the "data:image/jpeg;base64," prefix
+        const base64 = dataUrl.split(',')[1];
+        resolve(base64);
       };
     };
   });
 }
 
-// --- ORIGINAL HEADER LOGIC (UNCHANGED) ---
+// --- ORIGINAL HEADER LOGIC ---
 document.addEventListener("DOMContentLoaded", () => {
   const menuToggle = document.getElementById("menuToggle");
   const mainNav = document.querySelector("#main-nav ul");
@@ -768,25 +769,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- IMAGE PREVIEW & COMPRESSION LOGIC ---
+  // --- IMAGE PREVIEW & HANDLING ---
   const imageInput = document.getElementById("image");
   const imagePreview = document.getElementById("imagePreview");
-  let compressedFile = null;
+  let base64Image = null;
 
   if (imageInput) {
     imageInput.addEventListener("change", async function () {
       const file = this.files[0];
-
       if (!file) return;
 
       const allowedTypes = ["image/jpeg", "image/png"];
       const maxSize = 10 * 1024 * 1024;
 
-      // Reset
       document.getElementById("imageError").style.display = "none";
       imagePreview.style.display = "none";
 
-      // TYPE CHECK
       if (!allowedTypes.includes(file.type)) {
         document.getElementById("imageError").textContent = "Only JPG or PNG allowed.";
         document.getElementById("imageError").style.display = "block";
@@ -794,7 +792,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // SIZE CHECK
       if (file.size > maxSize) {
         document.getElementById("imageError").textContent = "Image must be under 10MB.";
         document.getElementById("imageError").style.display = "block";
@@ -802,7 +799,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // PREVIEW
       const reader = new FileReader();
       reader.onload = e => {
         imagePreview.src = e.target.result;
@@ -810,13 +806,13 @@ document.addEventListener("DOMContentLoaded", () => {
       };
       reader.readAsDataURL(file);
 
-      // COMPRESS IMAGE
-      compressedFile = await compressImage(file);
+      // Process image to Base64
+      base64Image = await compressAndGetBase64(file);
     });
   }
 
-  // --- UPDATED FORM SUBMISSION LOGIC ---
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwqSQpKkE94jCpFKY_smCxK4w_3pzeLzZMS7fFkDUa8ZNZAw8nxw0IuJuY9Ja0-OXy4BA/exec'; // REPLACE WITH YOUR DEPLOYED WEB APP URL
+  // --- UPDATED FORM SUBMISSION ---
+  const WEB_APP_URL = 'YOUR_WEB_APP_URL_HERE'; // REPLACE WITH YOUR DEPLOYED WEB APP URL
   const quoteForm = document.getElementById("quoteForm");
   const submitBtn = document.getElementById("submitBtn");
   const formSuccess = document.getElementById("formSuccess");
@@ -833,14 +829,12 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       let isValid = true;
-
       const name = document.getElementById("name").value.trim();
       const email = document.getElementById("email").value.trim();
       const phone = document.getElementById("phone").value.trim();
       const address = document.getElementById("address").value.trim();
       const service = document.getElementById("service").value;
 
-      // VALIDATION
       if (!name) { document.getElementById("nameError").style.display = "block"; isValid = false; }
       if (!email || !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) { document.getElementById("emailError").style.display = "block"; isValid = false; }
       if (!phone) { document.getElementById("phoneError").style.display = "block"; isValid = false; }
@@ -856,25 +850,22 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending...";
 
-      // Use FormData to handle the submission
-      const formData = new FormData();
-      formData.append("name", name);
-      formData.append("email", email);
-      formData.append("phone", phone);
-      formData.append("address", address);
-      formData.append("service", service);
-      formData.append("size", document.getElementById("size").value);
-      formData.append("details", document.getElementById("details").value);
-
-      // Append the compressed image if it exists
-      if (compressedFile) {
-        formData.append("image", compressedFile, "upload.jpg");
-      }
+      // Prepare payload
+      const payload = {
+        name: name,
+        email: email,
+        phone: phone,
+        address: address,
+        service: service,
+        size: document.getElementById("size").value,
+        details: document.getElementById("details").value,
+        image: base64Image // Send as Base64 string
+      };
 
       try {
         const response = await fetch(WEB_APP_URL, {
           method: "POST",
-          body: formData
+          body: JSON.stringify(payload)
         });
         const result = await response.text();
         
@@ -883,7 +874,7 @@ document.addEventListener("DOMContentLoaded", () => {
           formSuccess.style.display = "block";
           quoteForm.reset();
           document.getElementById("imagePreview").style.display = "none";
-          compressedFile = null; // Reset compressed file
+          base64Image = null;
         } else {
           throw new Error(result);
         }
