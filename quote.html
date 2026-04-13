@@ -831,16 +831,16 @@ if (imageInput) {
       const formData = new FormData(quoteForm);
 
       fetch(WEB_APP_URL, {
-        method: 'POST',
-        mode: 'cors', // UPDATED
+          method: 'POST',
         body: formData
-      })
+            })
       .then(() => {
         formSuccess.innerHTML = '<strong>✅ Success!</strong> Your quote request has been logged.';
         formSuccess.style.display = 'block';
         quoteForm.reset();
         submitBtn.textContent = 'Submit Request';
         submitBtn.disabled = false;
+        console.log("Submitting form...");
 
         setTimeout(() => {
           window.location.reload();
