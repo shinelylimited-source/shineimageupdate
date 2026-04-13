@@ -658,53 +658,8 @@
     </footer>
   </div>
 <script>
-
-// --- COMPRESSION & BASE64 FUNCTION ---
-async function compressAndGetBase64(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
-
-        // Max dimensions for compression (e.g., 1000px for stability)
-        const MAX_WIDTH = 1000;
-        const MAX_HEIGHT = 1000;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Get Base64 string from canvas
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-        // Remove the "data:image/jpeg;base64," prefix
-        const base64 = dataUrl.split(',')[1];
-        resolve(base64);
-      };
-    };
-  });
-}
-
-// --- ORIGINAL HEADER LOGIC ---
 document.addEventListener("DOMContentLoaded", () => {
+  // --- HEADER & NAVIGATION LOGIC (UNCHANGED) ---
   const menuToggle = document.getElementById("menuToggle");
   const mainNav = document.querySelector("#main-nav ul");
   const header = document.getElementById("main-header");
@@ -769,18 +724,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- IMAGE PREVIEW & HANDLING ---
+  // --- IMAGE PREVIEW LOGIC ---
   const imageInput = document.getElementById("image");
   const imagePreview = document.getElementById("imagePreview");
-  let base64Image = null;
 
   if (imageInput) {
-    imageInput.addEventListener("change", async function () {
+    imageInput.addEventListener("change", function () {
       const file = this.files[0];
       if (!file) return;
 
       const allowedTypes = ["image/jpeg", "image/png"];
-      const maxSize = 10 * 1024 * 1024;
+      const maxSize = 10 * 1024 * 1024; // 10MB
 
       document.getElementById("imageError").style.display = "none";
       imagePreview.style.display = "none";
@@ -805,13 +759,10 @@ document.addEventListener("DOMContentLoaded", () => {
         imagePreview.style.display = "block";
       };
       reader.readAsDataURL(file);
-
-      // Process image to Base64
-      base64Image = await compressAndGetBase64(file);
     });
   }
 
-  // --- UPDATED FORM SUBMISSION ---
+  // --- FORM SUBMISSION LOGIC ---
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwY4hzQE5DiQcGcQ4yD7PNlZTj1hugSBocIC3Idzh1mbLcSop5_G47hdBQ6bURRRLbxeg/exec'; // REPLACE WITH YOUR DEPLOYED WEB APP URL
   const quoteForm = document.getElementById("quoteForm");
   const submitBtn = document.getElementById("submitBtn");
@@ -819,7 +770,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const formErrorSummary = document.getElementById("formErrorSummary");
 
   if (quoteForm) {
-    quoteForm.addEventListener("submit", async function(e) {
+    quoteForm.addEventListener("submit", function(e) {
       e.preventDefault();
 
       formSuccess.style.display = "none";
@@ -850,42 +801,33 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending...";
 
-      // Prepare payload
-      const payload = {
-        name: name,
-        email: email,
-        phone: phone,
-        address: address,
-        service: service,
-        size: document.getElementById("size").value,
-        details: document.getElementById("details").value,
-        image: base64Image // Send as Base64 string
-      };
+      // Standard FormData is the most reliable way for multipart data
+      const formData = new FormData(quoteForm);
 
-      try {
-        const response = await fetch(WEB_APP_URL, {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-        const result = await response.text();
-        
+      fetch(WEB_APP_URL, {
+        method: "POST",
+        body: formData
+      })
+      .then(response => response.text())
+      .then(result => {
         if (result.includes("Success")) {
           formSuccess.innerHTML = "<strong>✅ Success!</strong> Your quote request has been logged.";
           formSuccess.style.display = "block";
           quoteForm.reset();
-          document.getElementById("imagePreview").style.display = "none";
-          base64Image = null;
+          if (imagePreview) imagePreview.style.display = "none";
         } else {
           throw new Error(result);
         }
-      } catch (err) {
+      })
+      .catch(err => {
         console.error("Submission error:", err);
         formErrorSummary.textContent = "Submission failed. " + err.message;
         formErrorSummary.style.display = "block";
-      } finally {
+      })
+      .finally(() => {
         submitBtn.textContent = "Submit Request";
         submitBtn.disabled = false;
-      }
+      });
     });
   }
 });
